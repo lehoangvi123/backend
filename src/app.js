@@ -6,12 +6,15 @@ const cors = require('cors');
 require('dotenv').config();
 
 const Rate = require('./models/rateModel');
+const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); // 👈 Thêm vào
+
 const {
   fetchRates,
   getCurrentRates, 
   getCurrentOriginalRates, 
   getCurrentProvider,
-  getCurrentSources
+  getCurrentSources, 
+  getCurrentIndicators
 } = require('./services/fetchRates');
 
 const app = express();
@@ -23,10 +26,12 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
+// ✅ MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// ✅ WebSocket
 io.on('connection', (socket) => {
   console.log('⚡ Client connected:', socket.id);
   const rates = getCurrentRates();
@@ -38,16 +43,20 @@ io.on('connection', (socket) => {
   });
 });
 
+// ✅ API: Tỷ giá hiện tại
 app.get('/api/rates/current', (req, res) => {
   const rates = getCurrentRates(); 
-   const original = getCurrentOriginalRates();
+  const original = getCurrentOriginalRates();
   const provider = getCurrentProvider();
+
   if (!Object.keys(rates).length) {
     return res.status(404).json({ success: false, message: 'No current rates available' });
   }
+
   res.json({ success: true, rates, original, provider });
 });
 
+// ✅ API: Danh sách nguồn tỷ giá
 app.get('/api/rates/sources', (req, res) => {
   const sources = getCurrentSources();
   if (!sources.length) {
@@ -56,6 +65,7 @@ app.get('/api/rates/sources', (req, res) => {
   res.json({ success: true, sources });
 });
 
+// ✅ API: Chuyển đổi cơ bản
 app.post('/api/rates/convert', (req, res) => {
   const { from, to, amount } = req.body;
   const rates = getCurrentRates();
@@ -70,6 +80,7 @@ app.post('/api/rates/convert', (req, res) => {
   res.json({ from, to, amount, result });
 });
 
+// ✅ API: Chuyển đổi chéo
 app.post('/api/rates/convert-cross', (req, res) => {
   const { from, to, via, amount } = req.body;
   const rates = getCurrentRates();
@@ -86,11 +97,44 @@ app.post('/api/rates/convert-cross', (req, res) => {
   res.json({ from, to, via, amount, rate: crossRate, result });
 });
 
-setInterval(() => fetchRates(io), 43200000); //a half of day. 
-fetchRates(io);
+// ✅ API: Chỉ số kỹ thuật theo loại tiền tệ cụ thể
+app.get('/api/rates/indicators/:currency', async (req, res) => {
+  try {
+    const currency = req.params.currency.toUpperCase();
+    const history = await Rate.find().sort({ createdAt: -1 }).limit(20);
+
+    if (!history.length) {
+      return res.status(404).json({ success: false, message: 'Not enough data for indicators' });
+    }
+
+    const historyArray = history
+      .map(h => ({ currency, value: h.rate[currency] }))
+      .filter(v => v.value != null);
+
+    if (!historyArray.length) {
+      return res.status(404).json({ success: false, message: 'No valid history for this currency' });
+    }
+
+    const indicators = calculateTechnicalIndicators(historyArray, currency);
+    res.json({ success: true, currency, indicators });
+  } catch (error) {
+    console.error('❌ Error calculating indicators:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ API: Toàn bộ chỉ số kỹ thuật
+app.get('/api/rates/indicators', (req, res) => {
+  const indicators = getCurrentIndicators();
+  if (!Object.keys(indicators).length) {
+    return res.status(404).json({ success: false, message: 'No indicators available' });
+  }
+  res.json({ success: true, indicators });
+});
+
+// ✅ Scheduler fetch tỷ giá định kỳ
+setInterval(() => fetchRates(io), 43200000); // Mỗi nửa ngày
+fetchRates(io); // Lần đầu gọi
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
-
-
