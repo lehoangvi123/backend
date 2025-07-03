@@ -8,7 +8,8 @@ require('dotenv').config();
 const Rate = require('./models/rateModel');
 const {
   fetchRates,
-  getCurrentRates,
+  getCurrentRates, 
+  getCurrentOriginalRates, 
   getCurrentProvider,
   getCurrentSources
 } = require('./services/fetchRates');
@@ -38,12 +39,13 @@ io.on('connection', (socket) => {
 });
 
 app.get('/api/rates/current', (req, res) => {
-  const rates = getCurrentRates();
+  const rates = getCurrentRates(); 
+   const original = getCurrentOriginalRates();
   const provider = getCurrentProvider();
   if (!Object.keys(rates).length) {
     return res.status(404).json({ success: false, message: 'No current rates available' });
   }
-  res.json({ success: true, rates, provider });
+  res.json({ success: true, rates, original, provider });
 });
 
 app.get('/api/rates/sources', (req, res) => {
@@ -84,7 +86,7 @@ app.post('/api/rates/convert-cross', (req, res) => {
   res.json({ from, to, via, amount, rate: crossRate, result });
 });
 
-setInterval(() => fetchRates(io), 5 * 60 * 1000);
+setInterval(() => fetchRates(io), 43200000); //a half of day. 
 fetchRates(io);
 
 const PORT = process.env.PORT || 5000;

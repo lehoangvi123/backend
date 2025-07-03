@@ -1,10 +1,13 @@
 const fetchRatesFromAvailableAPI = require('./fetchRatesFromAvailableAPI');
 const aggregateRatesFromSources = require('../utils/aggregateRates');
 const Rate = require('../models/rateModel');
+const smoothRateFluctuations = require('../utils/smoothRateFluctuations')
+
 
 let currentRates = {};
 let currentProvider = null;
-let currentSources = [];
+let currentSources = []; 
+let currentOriginalRates = {}; 
 
 const fetchRates = async (io) => {
   try {
@@ -13,7 +16,15 @@ const fetchRates = async (io) => {
 
     if (sources.length > 0) {
       const aggregated = aggregateRatesFromSources(sources);
-      currentRates = aggregated;
+      currentRates = aggregated;  
+        currentOriginalRates = aggregated;
+
+         // 👇 Làm mượt dao động
+      const smoothed = smoothRateFluctuations(aggregated, currentRates, 0.2);
+      currentRates = smoothed; 
+
+      
+
       currentProvider = 'Aggregated from: ' + sources.map(s => s.provider).join(', ');
 
       console.log('✅ Aggregated rates from:', currentProvider);
@@ -26,13 +37,15 @@ const fetchRates = async (io) => {
   }
 };
 
-const getCurrentRates = () => currentRates;
+const getCurrentRates = () => currentRates; 
+const getCurrentOriginalRates = () => currentOriginalRates
 const getCurrentProvider = () => currentProvider;
 const getCurrentSources = () => currentSources;
 
 module.exports = {
   fetchRates,
-  getCurrentRates,
+  getCurrentRates, 
+    getCurrentOriginalRates,
   getCurrentProvider,
   getCurrentSources
 };
