@@ -24,7 +24,7 @@ async function fetchRatesFromAvailableAPI(base = 'USD') {
     }
   }
 
-  return results; // ⚠️ TRẢ VỀ MẢNG
+  return results;
 }
 
 module.exports = fetchRatesFromAvailableAPI;
