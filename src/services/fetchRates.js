@@ -4,6 +4,8 @@ const Rate = require('../models/rateModel');
 const smoothRateFluctuations = require('../utils/smoothRateFluctuations');
 const detectRateAnomalies = require('../utils/detectRateAnomalies');
 const calculateTechnicalIndicators = require('../utils/calculateTechnicalIndicators');
+const saveRateToDB = require('./saveRateToDB')
+
 
 let currentRates = {};
 let currentProvider = null;
@@ -29,6 +31,7 @@ const fetchRates = async (io) => {
       // Tính toán chỉ số kỹ thuật cho mỗi loại tiền tệ
       const history = await Rate.find().sort({ createdAt: -1 }).limit(20);
       const indicators = {};
+      
       for (const currency of Object.keys(aggregated)) {
         const historyArray = history
           .map(h => ({ currency, value: h.rate[currency] }))
@@ -40,7 +43,8 @@ const fetchRates = async (io) => {
       // Lưu bản gốc và làm mượt
       currentOriginalRates = aggregated;
       const smoothed = smoothRateFluctuations(aggregated, currentRates, 0.2);
-      currentRates = smoothed;
+      currentRates = smoothed; 
+      await saveRateToDB(currentRates); 
 
       currentProvider = 'Aggregated from: ' + sources.map(s => s.provider).join(', ');
 
