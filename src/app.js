@@ -132,6 +132,14 @@ app.get('/api/rates/indicators', (req, res) => {
   res.json({ success: true, indicators });
 });
 
+app.get('/api/rates/summary', (req, res) => {
+  const summary = getCurrentMarketSummary();
+  if (!summary) {
+    return res.status(404).json({ success: false, message: 'No summary available' });
+  }
+  res.json({ success: true, summary });
+});
+
 
 // ✅ Gọi ngay khi server khởi động
 fetchRates(io);  

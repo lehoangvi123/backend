@@ -5,13 +5,15 @@ const smoothRateFluctuations = require('../utils/smoothRateFluctuations');
 const detectRateAnomalies = require('../utils/detectRateAnomalies');
 const calculateTechnicalIndicators = require('../utils/calculateTechnicalIndicators');
 const saveRateToDB = require('./saveRateToDB')
-
+const generateMarketSummary = require('../utils/generateMarketSummary')
+const getCurrentMarketSummary = () => currentMarketSummary; 
 
 let currentRates = {};
 let currentProvider = null;
 let currentSources = [];
 let currentOriginalRates = {}; 
-let currentIndicators = {};  
+let currentIndicators = {};   
+let currentMarketSummary = {}; 
 
 const fetchRates = async (io) => {
   try {
@@ -44,12 +46,18 @@ const fetchRates = async (io) => {
       currentOriginalRates = aggregated;
       const smoothed = smoothRateFluctuations(aggregated, currentRates, 0.2);
       currentRates = smoothed; 
-      await saveRateToDB(currentRates); 
+      await saveRateToDB(currentRates);  
+
+          // 🆕 Tạo tóm tắt thị trường
+    currentMarketSummary = generateMarketSummary(currentRates, aggregated);
+
 
       currentProvider = 'Aggregated from: ' + sources.map(s => s.provider).join(', ');
 
       console.log('✅ Tổng hợp tỷ giá từ:', currentProvider);
-      if (io) io.emit('rateUpdate', currentRates);
+      if (io) 
+        io.emit('rateUpdate', currentRates); 
+        io.emit('marketSummary', currentMarketSummary);
     } else {
       console.error('❌ Không thể cập nhật tỷ giá từ bất kỳ API nào');
     }
@@ -70,5 +78,6 @@ module.exports = {
   getCurrentOriginalRates,
   getCurrentProvider,
   getCurrentSources,  
-  getCurrentIndicators
+  getCurrentIndicators, 
+  getCurrentMarketSummary
 };
