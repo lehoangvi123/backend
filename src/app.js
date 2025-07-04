@@ -6,6 +6,8 @@ const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./config/db')
 // const generateMarketSummary = require('../utils/generateMarketSummary');
+const historyRoutes = require('./routes/historyRoutes');
+const { processHistoricalData } = require('./services/processHistoricalData');
 
 const Rate = require('./models/rateModel');
 const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); // 👈 Thêm vào
@@ -28,7 +30,8 @@ const io = socketIo(server, {
 
 connectDB();
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); 
+app.use('/api/history', historyRoutes);
 
 // ✅ MongoDB
 mongoose.connect(process.env.MONGO_URI)
@@ -46,6 +49,8 @@ io.on('connection', (socket) => {
     console.log('❌ Client disconnected:', socket.id);
   });
 });
+
+
 
 // ✅ API: Tỷ giá hiện tại
 app.get('/api/rates/current', (req, res) => {
@@ -150,8 +155,16 @@ app.get('/api/rates/summary', (req, res) => {
 fetchRates(io);  
 
 // ⏱️ Sau đó mới chạy lặp theo khoảng thời gian
-setInterval(() => fetchRates(io), 5000);//1 ngay
+setInterval(() => fetchRates(io), 43200000);//1 ngay
 
+// Gọi lần đầu
+processHistoricalData('24h');
+
+// Lặp lại mỗi 24 giờ
+setInterval(() => {
+  console.log('⏳ Tự động xử lý dữ liệu lịch sử (24h)');
+  processHistoricalData('24h');
+}, 43200000);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
