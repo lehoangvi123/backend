@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./config/db')
+// const generateMarketSummary = require('../utils/generateMarketSummary');
 
 const Rate = require('./models/rateModel');
 const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); // 👈 Thêm vào
@@ -15,7 +16,8 @@ const {
   getCurrentOriginalRates, 
   getCurrentProvider,
   getCurrentSources, 
-  getCurrentIndicators
+  getCurrentIndicators, 
+  getCurrentMarketSummary
 } = require('./services/fetchRates');
 
 const app = express();
@@ -134,21 +136,25 @@ app.get('/api/rates/indicators', (req, res) => {
   res.json({ success: true, indicators });
 });
 
+
+// ✅ Tạo API GET /api/rates/summary
 app.get('/api/rates/summary', (req, res) => {
   const summary = getCurrentMarketSummary();
-  if (!summary) {
-    return res.status(404).json({ success: false, message: 'No summary available' });
+  if (!summary || Object.keys(summary).length === 0) {
+    return res.status(404).json({ success: false, message: 'No market summary available' });
   }
   res.json({ success: true, summary });
 });
-
 
 // ✅ Gọi ngay khi server khởi động
 fetchRates(io);  
 
 // ⏱️ Sau đó mới chạy lặp theo khoảng thời gian
-setInterval(() => fetchRates(io), 432000000);//1 ngay
+setInterval(() => fetchRates(io), 5000);//1 ngay
 
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+
+
