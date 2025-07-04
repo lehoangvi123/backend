@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const connectDB = require('./config/db')
 
 const Rate = require('./models/rateModel');
 const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); // 👈 Thêm vào
@@ -23,6 +24,7 @@ const io = socketIo(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+connectDB();
 app.use(cors());
 app.use(express.json());
 
