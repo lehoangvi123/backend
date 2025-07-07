@@ -158,13 +158,14 @@ fetchRates(io);
 setInterval(() => fetchRates(io), 43200000);//1 ngay
 
 // Gọi lần đầu
-processHistoricalData('24h');
+// processHistoricalData('24h');
 
 // Lặp lại mỗi 24 giờ
 setInterval(() => {
   console.log('⏳ Tự động xử lý dữ liệu lịch sử (24h)');
   processHistoricalData('24h');
-}, 43200000);
+}, 43200000);   
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
