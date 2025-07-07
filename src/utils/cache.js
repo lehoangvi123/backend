@@ -1,16 +1,29 @@
-const redis = require('redis');
-const client = redis.createClient({ url: process.env.REDIS_URL });
+// 📁 utils/cache.js
 
-client.on('error', (err) => console.log('Redis Client Error', err));
-client.connect();
+const cache = new Map();
 
-async function cacheRate(key, value) {
-  await client.set(key, JSON.stringify(value), { EX: 60 });
+function cacheRate(key, value, ttl) {
+  const expiresAt = Date.now() + ttl;
+  cache.set(key, { value, expiresAt });
+
+  setTimeout(() => {
+    const entry = cache.get(key);
+    if (entry && entry.expiresAt <= Date.now()) {
+      cache.delete(key);
+    }
+  }, ttl);
 }
 
-async function getCachedRate(key) {
-  const data = await client.get(key);
-  return data ? JSON.parse(data) : null;
+function getCachedRate(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+
+  return entry.value;
 }
 
 module.exports = { cacheRate, getCachedRate };

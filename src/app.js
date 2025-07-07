@@ -4,13 +4,13 @@ const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
-const connectDB = require('./config/db')
-// const generateMarketSummary = require('../utils/generateMarketSummary');
+const connectDB = require('./config/db');
+const { cacheRate, getCachedRate } = require('./utils/cache');
 const historyRoutes = require('./routes/historyRoutes');
 const { processHistoricalData } = require('./services/processHistoricalData');
 
 const Rate = require('./models/rateModel');
-const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); // 👈 Thêm vào
+const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators');
 
 const {
   fetchRates,
@@ -28,17 +28,13 @@ const io = socketIo(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+// ✅ Kết nối MongoDB
 connectDB();
 app.use(cors());
 app.use(express.json()); 
 app.use('/api/history', historyRoutes);
 
-// ✅ MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
-
-// ✅ WebSocket
+// ✅ Kết nối WebSocket
 io.on('connection', (socket) => {
   console.log('⚡ Client connected:', socket.id);
   const rates = getCurrentRates();
@@ -49,8 +45,6 @@ io.on('connection', (socket) => {
     console.log('❌ Client disconnected:', socket.id);
   });
 });
-
-
 
 // ✅ API: Tỷ giá hiện tại
 app.get('/api/rates/current', (req, res) => {
@@ -74,7 +68,7 @@ app.get('/api/rates/sources', (req, res) => {
   res.json({ success: true, sources });
 });
 
-// ✅ API: Chuyển đổi cơ bản
+// ✅ API: Chuyển đổi cơ bản có cache
 app.post('/api/rates/convert', (req, res) => {
   const { from, to, amount } = req.body;
   const rates = getCurrentRates();
@@ -85,8 +79,19 @@ app.post('/api/rates/convert', (req, res) => {
     return res.status(400).json({ error: 'Invalid currency code or amount' });
   }
 
-  const result = (amount / fromRate) * toRate;
-  res.json({ from, to, amount, result });
+  const cacheKey = `${from}_${to}`;
+  const cachedRate = getCachedRate(cacheKey);
+
+  if (cachedRate !== null) {
+    const result = (amount / 1) * cachedRate;
+    return res.json({ from, to, amount, result, cached: true });
+  }
+
+  const liveRate = toRate / fromRate;
+  const result = amount * liveRate;
+
+  cacheRate(cacheKey, liveRate, 60 * 60 * 1000); // TTL = 1 giờ
+  res.json({ from, to, amount, result, cached: false });
 });
 
 // ✅ API: Chuyển đổi chéo
@@ -106,7 +111,7 @@ app.post('/api/rates/convert-cross', (req, res) => {
   res.json({ from, to, via, amount, rate: crossRate, result });
 });
 
-// ✅ API: Chỉ số kỹ thuật theo loại tiền tệ cụ thể
+// ✅ API: Chỉ số kỹ thuật theo từng loại tiền tệ
 app.get('/api/rates/indicators/:currency', async (req, res) => {
   try {
     const currency = req.params.currency.toUpperCase();
@@ -141,8 +146,7 @@ app.get('/api/rates/indicators', (req, res) => {
   res.json({ success: true, indicators });
 });
 
-
-// ✅ Tạo API GET /api/rates/summary
+// ✅ API: Tóm tắt thị trường
 app.get('/api/rates/summary', (req, res) => {
   const summary = getCurrentMarketSummary();
   if (!summary || Object.keys(summary).length === 0) {
@@ -151,23 +155,19 @@ app.get('/api/rates/summary', (req, res) => {
   res.json({ success: true, summary });
 });
 
-// ...các phần trên giữ nguyên
+// ✅ Gọi ngay khi server khởi động
 fetchRates(io);
 
-// ⏱️ Gọi lại mỗi 1 tiếng để đảm bảo tần suất vừa đủ
-setInterval(fetchRates, 60 * 60 * 1000);
+// ⏱️ Gọi lại mỗi 1 giờ
+setInterval(() => fetchRates(io), 24 * 60 * 60 * 1000);
 
-// ✅ Gọi xử lý dữ liệu lịch sử 1 lần đầu và lặp mỗi 24 giờ
+// ✅ Gọi xử lý dữ liệu lịch sử ban đầu và lặp lại mỗi 24 giờ
 processHistoricalData('24h');
 setInterval(() => {
-  console.log('⏳ Xử lý dữ liệu lịch sử 24h');
+  console.log('⏳ Tự động xử lý dữ liệu lịch sử (24h)');
   processHistoricalData('24h');
 }, 24 * 60 * 60 * 1000);
 
-
-
+// ✅ Khởi động server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
-
-
