@@ -8,7 +8,8 @@ const connectDB = require('./config/db');
 const { cacheRate, getCachedRate } = require('./utils/cache');
 const historyRoutes = require('./routes/historyRoutes');
 const { processHistoricalData } = require('./services/processHistoricalData');
-
+const { invalidateRateCache } = require('./utils/cache'); // 👈 Thêm vào
+const { warmupCache } = require('./utils/cache');
 const Rate = require('./models/rateModel');
 const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators');
 
@@ -34,7 +35,7 @@ app.use(cors());
 app.use(express.json()); 
 app.use('/api/history', historyRoutes);
 
-// ✅ Kết nối WebSocket
+// ✅ WebSocket
 io.on('connection', (socket) => {
   console.log('⚡ Client connected:', socket.id);
   const rates = getCurrentRates();
@@ -71,26 +72,25 @@ app.get('/api/rates/sources', (req, res) => {
 // ✅ API: Chuyển đổi cơ bản có cache
 app.post('/api/rates/convert', (req, res) => {
   const { from, to, amount } = req.body;
+  const cacheKey = `${from}_${to}`;
+  const cachedRate = getCachedRate(cacheKey);
+
+  if (cachedRate !== null) {
+    const result = (amount * cachedRate).toFixed(6);
+    return res.json({ from, to, amount, result, cached: true });
+  }
+
   const rates = getCurrentRates();
   const fromRate = rates[from];
   const toRate = rates[to];
 
   if (!fromRate || !toRate || isNaN(amount)) {
-    return res.status(400).json({ error: 'Invalid currency code or amount' });
+    return res.status(400).json({ error: 'Invalid input' });
   }
 
-  const cacheKey = `${from}_${to}`;
-  const cachedRate = getCachedRate(cacheKey);
-
-  if (cachedRate !== null) {
-    const result = (amount / 1) * cachedRate;
-    return res.json({ from, to, amount, result, cached: true });
-  }
-
-  const liveRate = toRate / fromRate;
-  const result = amount * liveRate;
-
-  cacheRate(cacheKey, liveRate, 60 * 60 * 1000); // TTL = 1 giờ
+  const rate = toRate / fromRate;
+  cacheRate(cacheKey, rate); // TTL mặc định 1 giờ
+  const result = (amount * rate).toFixed(6);
   res.json({ from, to, amount, result, cached: false });
 });
 
@@ -109,7 +109,30 @@ app.post('/api/rates/convert-cross', (req, res) => {
   const crossRate = fromRate / toRate;
   const result = amount * crossRate;
   res.json({ from, to, via, amount, rate: crossRate, result });
+}); 
+
+// ✅ API: Vô hiệu hóa cache theo cặp tiền
+app.post('/api/rates/cache/invalidate', (req, res) => {
+  const { from, to } = req.body;
+  if (!from || !to) {
+    return res.status(400).json({ success: false, message: 'Missing currency pair' });
+  }
+
+  const key = `${from}_${to}`;
+  invalidateRateCache(key);
+  res.json({ success: true, message: `Cache invalidated for ${key}` });
+}); 
+
+// Thêm route API
+app.post('/api/rates/cache/warmup', (req, res) => {
+  const { pairs } = req.body;
+  if (!Array.isArray(pairs)) {
+    return res.status(400).json({ success: false, message: 'pairs must be an array' });
+  }
+  warmupCache(pairs, getCurrentRates);
+  res.json({ success: true, warmedUp: pairs });
 });
+
 
 // ✅ API: Chỉ số kỹ thuật theo từng loại tiền tệ
 app.get('/api/rates/indicators/:currency', async (req, res) => {
@@ -153,20 +176,30 @@ app.get('/api/rates/summary', (req, res) => {
     return res.status(404).json({ success: false, message: 'No market summary available' });
   }
   res.json({ success: true, summary });
-});
+}); 
 
-// ✅ Gọi ngay khi server khởi động
-fetchRates(io);
+// ✅ Gọi ngay khi khởi động
+
+// ⬇️ Ngay sau fetchRates(io), gọi warmupCache 
+fetchRates(io).then(() => {
+  warmupCache(
+    ['AUD_RON', 'AUD_BRL', 'AUD_CAD', 'AUD_CNY'],
+    getCurrentRates
+  );
+});
 
 // ⏱️ Gọi lại mỗi 1 giờ
 setInterval(() => fetchRates(io), 24 * 60 * 60 * 1000);
 
-// ✅ Gọi xử lý dữ liệu lịch sử ban đầu và lặp lại mỗi 24 giờ
+// ✅ Gọi xử lý dữ liệu lịch sử lần đầu và lặp lại mỗi 24 giờ
 processHistoricalData('24h');
 setInterval(() => {
   console.log('⏳ Tự động xử lý dữ liệu lịch sử (24h)');
   processHistoricalData('24h');
-}, 24 * 60 * 60 * 1000);
+}, 24 * 60 * 60 * 1000); 
+
+// Khi người dùng cập nhật tỷ giá thủ công
+invalidateRateCache('USD_VND');
 
 // ✅ Khởi động server
 const PORT = process.env.PORT || 5000;
