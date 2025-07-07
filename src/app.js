@@ -151,20 +151,19 @@ app.get('/api/rates/summary', (req, res) => {
   res.json({ success: true, summary });
 });
 
-// ✅ Gọi ngay khi server khởi động
-fetchRates(io);  
+// ...các phần trên giữ nguyên
+fetchRates(io);
 
-// ⏱️ Sau đó mới chạy lặp theo khoảng thời gian
-setInterval(() => fetchRates(io), 43200000);//1 ngay
+// ⏱️ Gọi lại mỗi 1 tiếng để đảm bảo tần suất vừa đủ
+setInterval(fetchRates, 60 * 60 * 1000);
 
-// Gọi lần đầu
-// processHistoricalData('24h');
-
-// Lặp lại mỗi 24 giờ
+// ✅ Gọi xử lý dữ liệu lịch sử 1 lần đầu và lặp mỗi 24 giờ
+processHistoricalData('24h');
 setInterval(() => {
-  console.log('⏳ Tự động xử lý dữ liệu lịch sử (24h)');
+  console.log('⏳ Xử lý dữ liệu lịch sử 24h');
   processHistoricalData('24h');
-}, 43200000);   
+}, 24 * 60 * 60 * 1000);
+
 
 
 const PORT = process.env.PORT || 5000;
