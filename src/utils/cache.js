@@ -64,6 +64,35 @@ function getCacheStatistics() {
     expired,
     entries
   };
+} 
+
+function optimizeCacheMemory() {
+  const now = Date.now();
+  let removed = 0;
+
+  for (const [key, { expiresAt }] of cache.entries()) {
+    if (expiresAt < now) {
+      cache.delete(key);
+      removed++;
+    }
+  }
+
+  console.log(`🧹 Đã xoá ${removed} cache hết hạn`);
+  return removed;
+} 
+
+function clearExpiredCache() {
+  const now = Date.now();
+  let removed = 0;
+
+  for (const [key, entry] of cache.entries()) {
+    if (entry.expiresAt < now) {
+      cache.delete(key);
+      removed++;
+    }
+  }
+
+  return removed;
 }
 
 
@@ -72,5 +101,7 @@ module.exports = {
   getCachedRate,
   invalidateRateCache, 
   warmupCache, 
-  getCacheStatistics
+  getCacheStatistics, 
+  optimizeCacheMemory, 
+  clearExpiredCache // 👈 Thêm export
 };
