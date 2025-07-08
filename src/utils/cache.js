@@ -37,11 +37,40 @@ const warmupCache = (pairs, getRatesFn) => {
       console.warn(`⚠️ Không thể warmup ${pair} do thiếu dữ liệu`);
     }
   }
-};
+}; 
+
+function getCacheStatistics() {
+  const now = Date.now();
+  let total = 0, expired = 0, active = 0;
+  const entries = [];
+
+  for (const [key, { value: rate, expiresAt }] of cache.entries()) {
+    total++;
+    const isExpired = expiresAt < now;
+    if (isExpired) expired++;
+    else active++;
+
+    entries.push({
+      currencyPair: key,
+      rate,
+      expiry: new Date(expiresAt).toISOString(),
+      status: isExpired ? 'expired' : 'active'
+    });
+  }
+
+  return {
+    total,
+    active,
+    expired,
+    entries
+  };
+}
+
 
 module.exports = {
   cacheRate,
   getCachedRate,
   invalidateRateCache, 
-  warmupCache
+  warmupCache, 
+  getCacheStatistics
 };

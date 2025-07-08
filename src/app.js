@@ -11,8 +11,8 @@ const { processHistoricalData } = require('./services/processHistoricalData');
 const { invalidateRateCache } = require('./utils/cache'); // 👈 Thêm vào
 const { warmupCache } = require('./utils/cache');
 const Rate = require('./models/rateModel');
-const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators');
-
+const calculateTechnicalIndicators = require('./utils/calculateTechnicalIndicators'); 
+const { getCacheStatistics } = require('./utils/cache')
 const {
   fetchRates,
   getCurrentRates, 
@@ -133,6 +133,10 @@ app.post('/api/rates/cache/warmup', (req, res) => {
   res.json({ success: true, warmedUp: pairs });
 });
 
+app.get('/api/rates/cache/stats', (req, res) => {
+  const stats = getCacheStatistics();
+  res.json({ success: true, stats });
+});   
 
 // ✅ API: Chỉ số kỹ thuật theo từng loại tiền tệ
 app.get('/api/rates/indicators/:currency', async (req, res) => {
