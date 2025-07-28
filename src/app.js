@@ -117,7 +117,9 @@ app.get('/api/rates/current', (req, res) => {
     return res.status(404).json({ success: false, message: 'No current rates available' });
   }
   res.json({ success: true, rates, original, provider });
-});
+}); 
+
+
 
 app.get('/api/rates/sources', (req, res) => {
   const sources = getCurrentSources();
@@ -125,7 +127,24 @@ app.get('/api/rates/sources', (req, res) => {
     return res.status(404).json({ success: false, message: 'No source data available' });
   }
   res.json({ success: true, sources });
+}); 
+
+app.get('/api/rates/indicators', (req, res) => {
+  const rates = getCurrentRates();
+
+  if (!Object.keys(rates).length) {
+    return res.status(404).json({ success: false, message: 'No current rates available' });
+  }
+
+  try {
+    const indicators = calculateTechnicalIndicators(rates);
+    res.json({ success: true, indicators });
+  } catch (error) {
+    console.error('❌ Lỗi khi tính indicators:', error);
+    res.status(500).json({ success: false, message: 'Lỗi máy chủ khi tính toán indicators' });
+  }
 });
+
 
 app.post('/api/rates/convert', async (req, res) => {
   const { from, to, amount, userId } = req.body;
