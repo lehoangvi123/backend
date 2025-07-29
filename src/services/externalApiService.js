@@ -18,7 +18,7 @@ const apis = [
   // }, 
   {
     name: 'Frankfurter API',
-    url: (base) => `https://api.frankfurter.app/latest?from=${base}`,
+    url: (base) => `https://api.frankfurter.app/latest?from=USD`,
     extract: (res) => res.data.rates,
     checkSuccess: (res) => !!res.data?.rates
   } 
