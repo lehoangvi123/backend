@@ -3,7 +3,7 @@
 const apis = [
   // {
   //   name: 'ExchangeRate API',
-  //   url: (base) => `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_API_KEY}/latest/${base}`,
+  //   url: (base) => `https://api.exchangerate-api.com/v4/latest/USD`,
   //   extract: (res) => res.data.conversion_rates,
   //   checkSuccess: (res) => res.data?.result === 'success'
   // },
@@ -17,8 +17,8 @@ const apis = [
   //   checkSuccess: (res) => !!res.data?.rates 
   // }, 
   {
-    name: 'Frankfurter API',
-    url: (base) => `https://api.frankfurter.app/latest?from=${base}`,
+    name: 'ExchangeAPI',
+    url: (base) => `https://api.exchangerate-api.com/v4/latest/USD`,
     extract: (res) => res.data.rates,
     checkSuccess: (res) => !!res.data?.rates
   } 
